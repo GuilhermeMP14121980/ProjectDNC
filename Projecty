@@ -1,0 +1,124 @@
+from langchain import PromptTemplate
+import requests
+
+# Exemplo de integração com API do WhatsApp (Twilio ou WhatsApp Business)
+def enviar_mensagem(mensagem, numero):
+    url = "URL_DA_API_WHATSAPP"
+    payload = {
+        "to": numero,
+        "type": "text",
+        "text": {"body": mensagem}
+    }
+    headers = {"Authorization": "Bearer SEU_TOKEN"}
+    response = requests.post(url, json=payload, headers=headers)
+    return response.json()
+
+# Configurar o LangChain
+template = PromptTemplate(input_variables=["mensagem"], template="Responder: {mensagem}")
+mensagem = "Como posso te ajudar?"
+resposta = template.format(mensagem=mensagem)
+print(enviar_mensagem(resposta, "NUMERO_DO_DESTINATARIO"))
+
+from flask import Flask, request, jsonify
+import requests
+
+app = Flask(__name__)
+
+# Exemplo de integração com a API do Google Translator
+def traduzir_texto(texto, idioma_destino):
+    url = "https://translation.googleapis.com/language/translate/v2"
+    chave_api = "SUA_CHAVE_API"  # Insira sua chave da API aqui
+    parametros = {
+        "q": texto,
+        "target": idioma_destino,
+        "key": chave_api
+    }
+    response = requests.post(url, data=parametros)
+    traducao = response.json()
+    return traducao["data"]["translations"][0]["translatedText"]
+
+@app.route('/traduzir', methods=['POST'])
+def traduzir():
+    dados = request.get_json()
+    texto = dados["texto"]
+    idioma_destino = dados["idioma_destino"]
+    traducao = traduzir_texto(texto, idioma_destino)
+    return jsonify({"original": texto, "traduzido": traducao})
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+{
+    "texto": "Olá, tudo bem?",
+    "idioma_destino": "en"
+}
+
+{
+    "original": "Olá, tudo bem?",
+    "traduzido": "Hello, how are you?"
+}
+
+import openai
+
+openai.api_key = "SUA_CHAVE_API"
+
+def traduzir_texto_openai(texto, idioma_destino):
+    prompt = f"Traduza o seguinte texto para {idioma_destino}:\n\n{texto}"
+    resposta = openai.Completion.create(
+        engine="text-davinci-003",  # ou outro modelo disponível
+        prompt=prompt,
+        max_tokens=100
+    )
+    traducao = resposta.choices[0].text.strip()
+    return traducao
+
+texto_original = "Olá, como você está?"
+idioma = "inglês"  
+traduzido = traduzir_texto_openai(texto_original, idioma)
+print(f"Texto traduzido: {traduzido}")
+
+from flask import Flask, request
+import requests
+
+app = Flask(__name__)
+
+# Configuração do seu Token e URL
+WHATSAPP_API_URL = "https://api.whatsapp.com/v1/messages"
+TOKEN = "SEU_TOKEN_DE_ACESSO"
+
+# Enviar mensagens ao WhatsApp
+def enviar_mensagem(numero, texto):
+    headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+    dados = {
+        "to": numero,
+        "type": "text",
+        "text": {"body": texto}
+    }
+    response = requests.post(WHATSAPP_API_URL, json=dados, headers=headers)
+    return response.json()
+
+#Endpoint para mensagens
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    dados = request.json
+    mensagem = dados["messages"][0]["text"]["body"]
+    numero = dados["messages"][0]["from"]
+
+    # Resposta automática
+    resposta = f"Você disse: {mensagem}. O que mais posso ajudar?"
+    enviar_mensagem(numero, resposta)
+    return "OK", 200
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+openai.api_key = "SUA_CHAVE_OPENAI"
+
+def gerar_resposta(texto):
+    prompt = f"Chatbot: {texto}"
+    resposta = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=150
+    )
+    return resposta.choices[0].text.strip()
