@@ -1,0 +1,137 @@
+import os
+import requests
+from flask import Flask, jsonify, request
+from langchain_community.agent_toolkits.load_tools import load_tools
+from langchain.agents import initialize_agent, AgentType
+from langchain.llms import OpenAI
+import gradio as gr
+import streamlit as st
+import pandas as pd
+
+# Configuração da chave de API da OpenAI
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")  # Use variáveis de ambiente para segurança
+
+# URL para buscar dados do IBGE
+IBGE_POPULATION_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
+
+# Inicializando o Flask
+app = Flask(__name__)
+
+def buscar_dados_ibge(municipio):
+    """
+    Busca dados populacionais e de renda per capita de um município na API do IBGE.
+    """
+    try:
+        response = requests.get(IBGE_POPULATION_URL, timeout=10)  # Timeout para evitar travamentos
+        response.raise_for_status()
+        municipios = response.json()
+
+        # Procurar dados do município
+        dados_municipio = next((m for m in municipios if m['nome'].lower() == municipio.lower()), None)
+        if not dados_municipio:
+            return {"erro": f"Município '{municipio}' não encontrado no IBGE."}
+
+        # Validar campos disponíveis
+        populacao = dados_municipio.get('populacao', "Não disponível")
+        renda_per_capita = dados_municipio.get('renda_per_capita', "Não disponível")
+
+        return {"populacao": populacao, "renda_per_capita": renda_per_capita}
+    except requests.exceptions.Timeout:
+        return {"erro": "A requisição para a API do IBGE expirou. Tente novamente mais tarde."}
+    except requests.exceptions.RequestException as e:
+        return {"erro": f"Erro ao acessar a API do IBGE: {str(e)}"}
+    except Exception as e:
+        return {"erro": f"Um erro inesperado ocorreu: {str(e)}"}
+
+@app.route('/dados', methods=['GET'])
+def buscar_dados():
+    municipio = request.args.get('municipio')
+    if not municipio:
+        return jsonify({"erro": "Por favor, forneça o nome do município."}), 400
+
+    municipio = municipio.strip().lower()
+
+    # Buscar dados do IBGE
+    dados_ibge = buscar_dados_ibge(municipio)
+    if "erro" in dados_ibge:
+        return jsonify(dados_ibge), 404
+
+    # Retornar os dados
+    return jsonify({
+        "municipio": municipio.title(),
+        "populacao": dados_ibge.get('populacao'),
+        "renda_per_capita": dados_ibge.get('renda_per_capita'),
+        "numero_escolas": "Não disponível"  # Placeholder
+    })
+
+def bot_interno(pergunta):
+    """
+    Processa a pergunta e responde com dados do município ou do modelo AI.
+    """
+    try:
+        if "dados do município" in pergunta.lower():
+            municipio = pergunta.replace("dados do município", "").strip()
+            if not municipio:
+                return "Por favor, forneça o nome do município."
+
+            dados_ibge = buscar_dados_ibge(municipio)
+            if "erro" in dados_ibge:
+                return dados_ibge["erro"]
+
+            return (
+                f"Dados de {municipio.title()}:\n"
+                f"- População: {dados_ibge.get('populacao', 'Não disponível')}\n"
+                f"- Renda per capita: {dados_ibge.get('renda_per_capita', 'Não disponível')}\n"
+            )
+
+        llm = OpenAI(temperature=0)
+        tools = load_tools(["serpapi", "llm-math"], llm=llm)
+        agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
+        return agent.run(pergunta)
+    except Exception as e:
+        return f"Erro ao processar a pergunta: {str(e)}"
+
+iface = gr.Interface(
+    fn=bot_interno,
+    inputs=gr.inputs.Textbox(lines=2, placeholder="Digite sua pergunta aqui..."),
+    outputs="text",
+    title="Bot Interno com OpenAI",
+    description="Faça perguntas e obtenha respostas com o poder da IA e da web.",
+)
+
+@app.route('/gradio', methods=['GET'])
+def iniciar_gradio():
+    iface.launch(share=False, inline=False)
+    return jsonify({"status": "Interface Gradio iniciada. Acesse via navegador."})
+
+def criar_dashboard():
+    """
+    Cria um dashboard interativo para visualização de dados.
+    """
+    st.title("Dashboard de Dados do Município")
+    st.subheader("Visualize informações populacionais e socioeconômicas.")
+
+    municipio = st.text_input("Digite o nome do município:")
+    if st.button("Buscar Dados"):
+        if municipio:
+            try:
+                response = requests.get(f"http://localhost:5000/dados?municipio={municipio}")
+                data = response.json()
+
+                if "erro" in data:
+                    st.error(data["erro"])
+                else:
+                    st.success(f"Dados do município: {municipio.title()}")
+                    st.write("**População:**", data.get("populacao", "Não disponível"))
+                    st.write("**Renda per capita:**", data.get("renda_per_capita", "Não disponível"))
+                    st.write("**Número de escolas:**", data.get("numero_escolas", "Não disponível"))
+
+                    df = pd.DataFrame([data])
+                    st.table(df)
+            except requests.exceptions.RequestException:
+                st.error("Erro ao acessar a API.")
+        else:
+            st.warning("Por favor, insira o nome de um município.")
+
+if __name__ == "__main__":
+    app.run(debug=True)
