@@ -46,5 +46,5 @@ if 2 in dados.columns and 3 in dados.columns:
 
 # 3. Exportar os dados
 if st.button("Exportar Relatório"):
-    dados.to_excel("C:\\Users\\Manoel\\.vscode\\relatorio_dashboard.xlsx", index=False)
+    dados.to_csv(local do arquivo.csv\\relatorio_dashboard.csv", index=False)
     st.success("Relatório exportado com sucesso!")
