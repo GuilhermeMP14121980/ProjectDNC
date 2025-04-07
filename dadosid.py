@@ -105,7 +105,7 @@ def testar_dados(dados):
         print("Erro: Não foi possível realizar os testes. Os dados não foram carregados.")
 
 # Caminho para o arquivo CSV
-arquivo = "C:/Users/Manoel/Downloads/Material_Estatistica_Avancada.csv"
+arquivo = "seu_arquivo.csv"
 
 # Fluxo principal do programa
 def main():
