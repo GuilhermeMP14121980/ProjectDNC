@@ -1,0 +1,22 @@
+Os arquivos no mongo db devem seguir esse padrão Json
+{
+    "titulo": "Plano de Mobilidade Urbana 2025",
+    "tema": "Planos Municipais",
+    "conteudo": "Resumo do conteúdo...",
+    "caminho_arquivo": "/caminho/documento.pdf",
+    "data": "2025-04-10"
+}
+
+use essa ferramenta para testar os endpoints: https://www.postman.com/collections/1f0b2a3c4e5d6a7b8c9d
+curl -X POST http://localhost:5000/buscar_por_tema -H "Content-Type: application/json" -d '{"tema": "Planos Municipais"}'
+Os temas sugeridos podem ser usados como categorias:
+- Plano de Mapeamento Urbano
+- Projetos de Infraestrutura
+- Projetos Executivos
+- Projetos de Planos Municipais
+- Levantamentos Analisados
+- Planos de Concessões
+- Mapeamento Financeiro
+
+
+
